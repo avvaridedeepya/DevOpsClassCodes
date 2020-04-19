@@ -1,57 +1,56 @@
-pipeline{
-    tools{
-        jdk 'myjava'
-        maven 'mymaven'
+pipeline {
+    agent any
+    stages {
+        stage('compile') {
+            steps {
+                echo 'compiling..'
+                git url: 'https://github.com/lerndevops/DevOpsClassCodes'
+                bat label: '', script: 'mvn compile'
+            }
+        }
+        stage('codereview-pmd') {
+            steps {
+                echo 'codereview..'
+                bat label: '', script: 'mvn -P metrics pmd:pmd'
+            }
+            post {
+                success {
+                    pmd canComputeNew: false, defaultEncoding: '', healthy: '', pattern: '**/pmd.xml', unHealthy: ''
+                }
+            }
+            
+        }
+        stage('unit-test') {
+            steps {
+                echo 'codereview..'
+                bat label: '', script: 'mvn test'
+            }
+            post {
+                success {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+            
+        }
+        stage('metric-check') {
+            steps {
+                echo 'unit test..'
+                bat label: '', script: 'mvn cobertura:cobertura -Dcobertura.report.format=xml'
+            }
+            post {
+                success {
+                cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'target/site/cobertura/coverage.xml', conditionalCoverageTargets: '70, 0, 0', failUnhealthy: false, failUnstable: false, lineCoverageTargets: '80, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '80, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false                  
+                }
+            }
+            
+        }
+        stage('package') {
+            steps {
+                echo 'metric-check..'
+                bat label: '', script: 'mvn package'    
+            }
+            
+        }
     }
-    
-    agent none
-    stages{
-            stage('Compile'){
-                agent any
-                steps{
-                    sh 'mvn compile'
-                }
-            }
-            stage('CodeReview'){
-                agent any
-                steps{
-                    sh 'mvn pmd:pmd'
-                }
-                post{
-                    always{
-                        pmd pattern: 'target/pmd.xml'
-                    }
-                }
-            }
-            stage('UnitTest'){
-                agent {label 'slave_win'}
-                steps{
-                    git 'https://github.com/devops-trainer/DevOpsClassCodes.git'
-                    bat 'mvn test'
-                }
-                post{
-                    always{
-                        junit 'target/surefire-reports/*.xml'
-                    }
-                }
-                
-            }
-            stage('MetricCheck'){
-                agent any
-                steps{
-                    sh 'mvn cobertura:cobertura -Dcobertura.report.format=xml'
-                }
-                post{
-                    always{
-                        cobertura coberturaReportFile: 'target/site/cobertura/coverage.xml'
-                    }
-                }
-            }
-            stage('Package'){
-                agent any
-                steps{
-                    sh 'mvn package'
-                }
-            }
-    }
+
 }
